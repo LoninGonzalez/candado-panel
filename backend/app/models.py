@@ -60,6 +60,10 @@ class Dispositivo(models.Model):
     consumo_total_mb = models.PositiveIntegerField(null=True, blank=True)
     consumo_por_app = models.JSONField(default=dict, blank=True)  # {"com.app": mb}
     tope_superado = models.BooleanField(default=False)
+    # Última ubicación reportada
+    lat = models.FloatField(null=True, blank=True)
+    lon = models.FloatField(null=True, blank=True)
+    ubicacion_en = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["alias", "modelo"]

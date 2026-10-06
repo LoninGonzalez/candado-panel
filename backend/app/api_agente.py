@@ -48,6 +48,12 @@ def checkin(request):
     disp.version_aplicada = d.get("version_aplicada", disp.version_aplicada)
     disp.visto = timezone.now()
 
+    # Ubicación reportada
+    if "lat" in d and "lon" in d:
+        disp.lat = d.get("lat")
+        disp.lon = d.get("lon")
+        disp.ubicacion_en = timezone.now()
+
     # Consumo de datos reportado
     consumo = d.get("consumo")
     if isinstance(consumo, dict):

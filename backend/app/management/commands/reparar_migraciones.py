@@ -1,51 +1,61 @@
 """
-Repara el esquema de la app 'app' para que coincida con las migraciones actuales.
+Sincroniza el esquema de la base de datos con los modelos actuales, sin borrar datos.
 
-Durante el desarrollo se cambió el modelo varias veces sobre una base ya desplegada,
-dejando el historial de migraciones inconsistente y columnas desincronizadas. Como la
-app todavía no tiene datos de producción que preservar, la forma más fiable de garantizar
-que el esquema coincida con el código es: borrar las tablas de 'app' y su historial de
-migraciones, para que 'migrate' las recree limpias desde 0001.
+Durante el desarrollo el historial de migraciones quedó inconsistente. En vez de depender
+de él, este comando compara cada modelo de la app con la tabla real y:
+  - crea la tabla si no existe,
+  - añade las columnas que falten.
+Luego marca todas las migraciones de la app como aplicadas (--fake) para que 'migrate'
+no intente nada más. Es idempotente y conserva los datos existentes.
 
-IMPORTANTE: esto BORRA los datos de la app (políticas, equipos, comandos, aplicaciones).
-Es aceptable en esta etapa de desarrollo. Cuando el producto tenga datos reales que
-conservar, hay que quitar este comando y manejar los cambios de modelo con migraciones
-normales.
+Cuando el proyecto esté estable en producción, se puede retirar y volver a migraciones
+normales; dejarlo no hace daño (si el esquema ya coincide, no toca nada).
 """
+from django.apps import apps as django_apps
 from django.core.management.base import BaseCommand
 from django.db import connection
 
 
 class Command(BaseCommand):
-    help = "Recrea el esquema de 'app' desde cero para evitar inconsistencias."
-
-    # Tablas de la app, en orden de borrado (dependientes primero)
-    TABLAS = ["app_comando", "app_archivoapk", "app_miembro", "app_evento",
-              "app_dispositivo", "app_aplicacion", "app_politica"]
+    help = "Sincroniza el esquema con los modelos sin borrar datos."
 
     def handle(self, *args, **opts):
-        tablas_existentes = connection.introspection.table_names()
-        if "django_migrations" not in tablas_existentes:
-            self.stdout.write("Primer despliegue; nada que reparar.")
+        tablas = connection.introspection.table_names()
+        if "django_migrations" not in tablas:
+            self.stdout.write("Primer despliegue; migrate normal se encargará.")
             return
 
+        app_config = django_apps.get_app_config("app")
+        with connection.schema_editor() as editor:
+            for modelo in app_config.get_models():
+                tabla = modelo._meta.db_table
+                if tabla not in tablas:
+                    editor.create_model(modelo)
+                    self.stdout.write(f"Tabla {tabla} creada.")
+                    continue
+                # Añadir columnas que falten
+                cols_reales = {c.name for c in connection.introspection.get_table_description(
+                    connection.cursor(), tabla
+                )}
+                for campo in modelo._meta.local_fields:
+                    if campo.column not in cols_reales:
+                        editor.add_field(modelo, campo)
+                        self.stdout.write(f"Columna {tabla}.{campo.column} añadida.")
+
+        # Marcar todas las migraciones de 'app' como aplicadas
+        import os
+        from django.utils import timezone
+        from app.migrations import __path__ as mig_path
+        ahora = timezone.now()
         with connection.cursor() as cur:
-            # ¿El esquema ya está sano? Si app_politica tiene tope_total_mb, no tocar nada.
-            if "app_politica" in tablas_existentes:
-                cols = [c.name for c in connection.introspection.get_table_description(cur, "app_politica")]
-                if "tope_total_mb" in cols:
-                    self.stdout.write("Esquema ya actualizado; sin cambios.")
-                    return
-
-            # Borrar tablas de la app. CASCADE solo en Postgres (producción).
-            cascade = "CASCADE" if connection.vendor == "postgresql" else ""
-            for t in self.TABLAS:
-                if t in tablas_existentes:
-                    cur.execute(f"DROP TABLE IF EXISTS {t} {cascade}")
-                    self.stdout.write(f"Tabla {t} eliminada.")
-
-            # Borrar el historial de migraciones de 'app'
             cur.execute("DELETE FROM django_migrations WHERE app = 'app'")
-            self.stdout.write(self.style.SUCCESS(
-                "Esquema de 'app' limpiado. 'migrate' lo recreará desde 0001."
-            ))
+            migraciones = sorted(
+                f[:-3] for f in os.listdir(mig_path[0])
+                if f.endswith(".py") and f != "__init__.py"
+            )
+            for m in migraciones:
+                cur.execute(
+                    "INSERT INTO django_migrations (app, name, applied) VALUES ('app', %s, %s)",
+                    [m, ahora],
+                )
+        self.stdout.write(self.style.SUCCESS("Esquema sincronizado con los modelos."))

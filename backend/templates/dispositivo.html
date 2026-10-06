@@ -24,6 +24,13 @@
       <dt>Política</dt><dd>{{ d.politica.nombre|default:"Sin asignar" }}
         {% if d.politica %}{% if d.al_dia %}<span class="et ok">al día</span>{% else %}<span class="et alerta">pendiente</span>{% endif %}{% endif %}</dd>
       <dt>Inscrito</dt><dd>{{ d.inscrito|date:"d/m/Y H:i" }}</dd>
+      {% if d.lat and d.lon %}
+      <dt>Ubicación</dt>
+      <dd>
+        <a href="https://www.google.com/maps?q={{ d.lat }},{{ d.lon }}" target="_blank">Ver en el mapa</a>
+        <br><small style="color:var(--pizarra)">{{ d.ubicacion_en|timesince }} atrás</small>
+      </dd>
+      {% endif %}
     </dl>
   </div>
 
