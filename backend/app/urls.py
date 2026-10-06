@@ -16,6 +16,7 @@ urlpatterns = [
     path("politicas/<int:pk>/", views.politica_editar, name="politica_editar"),
     path("aplicaciones/", views.aplicaciones, name="aplicaciones"),
     path("aplicaciones/<int:pk>/borrar/", views.aplicacion_borrar, name="aplicacion_borrar"),
+    path("apk/<int:archivo_id>/<str:nombre>", views.descargar_apk, name="descargar_apk"),
 
     # API para teléfonos (token)
     path("api/checkin/", api_agente.checkin, name="checkin"),

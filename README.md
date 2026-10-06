@@ -75,3 +75,27 @@ El endpoint que consume es `POST /api/checkin/` con cabecera `X-Token`.
 | POST | `/api/comando/{id}/resultado/` | Informa si un comando se completó |
 
 Ambas requieren la cabecera `X-Token: <AGENTE_TOKEN>`.
+
+
+## Aplicaciones (subir APK al panel)
+
+Los APK se **suben directamente al panel** y se guardan en la base de datos; no necesitas
+un servidor de archivos aparte.
+
+1. **Aplicaciones → Agregar**: nombre, paquete, y selecciona el/los archivo(s) APK.
+2. Si la app viene **dividida** de Google Play (base.apk + split_config.*), selecciona
+   todos los archivos a la vez. El panel detecta el base solo.
+3. El panel guarda los APK y los sirve a los teléfonos (con token, de forma privada).
+4. Entra a un equipo → **Instalar** → elige la app. Candado la descarga e instala.
+
+**Extraer los APK de una app ya instalada** (para subirla al panel):
+```
+adb shell pm path com.ejemplo.app      # lista los APK (base + splits)
+adb pull /data/app/.../base.apk
+adb pull /data/app/.../split_config.arm64_v8a.apk   # uno por cada split
+```
+Luego subes esos archivos al panel.
+
+**Nota sobre Render gratis**: los APK van en la base de datos (que sí persiste), no en
+disco (que es efímero en Render). La BD gratuita son 1 GB; suficiente para varias apps.
+Para muchas apps grandes, sube al plan de pago.

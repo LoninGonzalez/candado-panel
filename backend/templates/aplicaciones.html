@@ -1,38 +1,44 @@
 {% extends "base.html" %}
 {% block titulo %}Aplicaciones{% endblock %}
 {% block contenido %}
-<div class="cab"><div><h1>Aplicaciones</h1><div class="resumen">APKs que puedes instalar en los equipos desde el panel.</div></div></div>
+<div class="cab"><div><h1>Aplicaciones</h1><div class="resumen">APKs guardados en el panel, listos para instalar en los equipos.</div></div></div>
 
 <div class="tarjeta">
   <h2>Agregar aplicación</h2>
-  <p style="color:var(--pizarra);font-size:.9rem">El APK debe estar en una URL pública con HTTPS (por ejemplo, tu Cloudflare Pages).</p>
-  <form method="post">
+  <p style="color:var(--pizarra);font-size:.9rem">
+    Sube el APK. Si la app viene dividida de Google Play (varios archivos base.apk +
+    split_config.*), selecciónalos todos a la vez. El panel los guarda y se los instala a los equipos.
+  </p>
+  <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
-      <label>Nombre<input name="nombre" required placeholder="App de la empresa"></label>
-      <label>Paquete<input name="paquete" required placeholder="com.empresa.app"></label>
+      <label>Nombre<input name="nombre" required placeholder="Access Control"></label>
+      <label>Paquete<input name="paquete" required placeholder="com.longport.access_control_app"></label>
     </div>
-    <label>URL del APK<input name="url" type="url" required placeholder="https://tuservidor.pages.dev/app.apk"></label>
-    <label>Notas <small>(opcional)</small><input name="notas" placeholder="Versión 2.1, para choferes"></label>
-    <button class="boton">Agregar</button>
+    <label>Archivos APK <small>(el base y, si aplica, los splits — puedes seleccionar varios)</small>
+      <input type="file" name="apks" accept=".apk" multiple required>
+    </label>
+    <label>Notas <small>(opcional)</small><input name="notas" placeholder="Versión 2.1"></label>
+    <button class="boton">Subir y agregar</button>
   </form>
 </div>
 
 {% if apps %}
 <table class="tabla">
-  <thead><tr><th>Nombre</th><th>Paquete</th><th>URL</th><th></th></tr></thead>
+  <thead><tr><th>Nombre</th><th>Paquete</th><th>Archivos</th><th>Tamaño</th><th></th></tr></thead>
   <tbody>
   {% for a in apps %}
     <tr>
-      <td>{{ a.nombre }}{% if a.notas %}<br><small style="color:var(--pizarra)">{{ a.notas }}</small>{% endif %}</td>
+      <td>{{ a.nombre }}{% if a.es_dividida %} <span class="et gris">dividida</span>{% endif %}{% if a.notas %}<br><small style="color:var(--pizarra)">{{ a.notas }}</small>{% endif %}</td>
       <td><code>{{ a.paquete }}</code></td>
-      <td><a href="{{ a.url }}" target="_blank" style="font-size:.85rem">{{ a.url|truncatechars:40 }}</a></td>
-      <td><form method="post" action="{% url 'aplicacion_borrar' a.pk %}" onsubmit="return confirm('¿Borrar esta app del catálogo?')">{% csrf_token %}<button class="boton peligro mini">Borrar</button></form></td>
+      <td>{{ a.archivos.count }} APK</td>
+      <td>{{ a.total_mb }} MB</td>
+      <td><form method="post" action="{% url 'aplicacion_borrar' a.pk %}" onsubmit="return confirm('¿Borrar esta app?')">{% csrf_token %}<button class="boton peligro mini">Borrar</button></form></td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
 {% else %}
-<div class="vacio"><p>No hay aplicaciones en el catálogo todavía.</p></div>
+<div class="vacio"><p>No hay aplicaciones todavía. Sube el primer APK arriba.</p></div>
 {% endif %}
 {% endblock %}

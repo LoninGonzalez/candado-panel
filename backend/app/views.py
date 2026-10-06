@@ -8,7 +8,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .models import Aplicacion, Comando, Dispositivo, Politica
+from django.http import Http404, HttpResponse
+
+from .models import Aplicacion, ArchivoApk, Comando, Dispositivo, Politica
 
 PAQUETE_RE = re.compile(r"^[a-zA-Z][\w]*(\.[a-zA-Z][\w]*)+$")
 
@@ -101,7 +103,13 @@ def comando(request, pk):
     datos = {}
     if tipo == Comando.Tipo.INSTALAR:
         app = get_object_or_404(Aplicacion, pk=request.POST.get("app"))
-        datos = {"url": app.url, "paquete": app.paquete, "nombre": app.nombre}
+        from django.conf import settings
+        base_url = f"{request.scheme}://{request.get_host()}"
+        datos = {
+            "urls": app.lista_urls(base_url, settings.AGENTE_TOKEN),   # URLs internas: base + splits
+            "paquete": app.paquete,
+            "nombre": app.nombre,
+        }
     elif tipo == Comando.Tipo.DESINSTALAR:
         datos = {"paquete": request.POST.get("paquete", "")}
     Comando.objects.create(dispositivo=d, tipo=tipo, datos=datos)
@@ -185,15 +193,51 @@ def _slug(texto):
 @login_required
 def aplicaciones(request):
     if request.method == "POST":
-        Aplicacion.objects.create(
+        archivos = request.FILES.getlist("apks")
+        if not archivos:
+            messages.error(request, "Debes seleccionar al menos el APK base.")
+            return redirect("aplicaciones")
+
+        app = Aplicacion.objects.create(
             nombre=request.POST.get("nombre", "").strip(),
             paquete=request.POST.get("paquete", "").strip(),
-            url=request.POST.get("url", "").strip(),
             notas=request.POST.get("notas", "").strip(),
         )
-        messages.success(request, "Aplicación agregada al catálogo.")
+        # El base es el que NO tiene "split" en el nombre; si no, el primero.
+        for i, f in enumerate(archivos):
+            datos = f.read()
+            nombre = f.name
+            es_base = "split" not in nombre.lower()
+            ArchivoApk.objects.create(
+                aplicacion=app, nombre=nombre, contenido=datos,
+                tamano=len(datos), es_base=es_base, orden=i,
+            )
+        # Garantizar que haya exactamente un base: si ninguno lo es, marcar el primero.
+        if not app.archivos.filter(es_base=True).exists():
+            primero = app.archivos.first()
+            if primero:
+                primero.es_base = True
+                primero.save(update_fields=["es_base"])
+        messages.success(request, f"'{app.nombre}' agregada con {len(archivos)} APK.")
         return redirect("aplicaciones")
     return render(request, "aplicaciones.html", {"apps": Aplicacion.objects.all(), "seccion": "app"})
+
+
+def descargar_apk(request, archivo_id, nombre):
+    """Sirve un APK guardado en la BD. Protegido por token (cabecera o ?token=)."""
+    from django.conf import settings
+    token = request.headers.get("X-Token") or request.GET.get("token", "")
+    autorizado = (token and token == settings.AGENTE_TOKEN) or request.user.is_authenticated
+    if not autorizado:
+        raise Http404
+    try:
+        a = ArchivoApk.objects.get(id=archivo_id)
+    except ArchivoApk.DoesNotExist:
+        raise Http404
+    resp = HttpResponse(bytes(a.contenido), content_type="application/vnd.android.package-archive")
+    resp["Content-Disposition"] = f'attachment; filename="{a.nombre}"'
+    resp["Content-Length"] = a.tamano
+    return resp
 
 
 @login_required
