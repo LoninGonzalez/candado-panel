@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block titulo %}Equipos{% endblock %}
+{% block contenido %}
+<div class="cab">
+  <div>
+    <h1>Equipos</h1>
+    <div class="resumen">
+      <span><span class="punto ok"></span>{{ en_linea }} en línea</span>
+      <span><span class="punto gris"></span>{{ total }} en total</span>
+      {% if desactualizados %}<span><span class="punto alerta"></span>{{ desactualizados }} con política pendiente</span>{% endif %}
+    </div>
+  </div>
+</div>
+
+{% if dispositivos %}
+<div class="rejilla">
+  {% for d in dispositivos %}
+  <a href="{% url 'dispositivo' d.pk %}" class="tel {% if not d.en_linea %}off{% elif not d.al_dia %}vieja{% endif %}">
+    <span class="bocina"></span>
+    <span class="nom">{{ d.alias|default:d.modelo|default:"Equipo" }}</span>
+    <span class="meta">{% if d.en_linea %}En línea{% else %}Desconectado{% endif %}</span>
+    <span class="meta">{{ d.politica.nombre|default:"Sin política" }}</span>
+    <span class="meta">{% if d.bateria is not None %}Batería {{ d.bateria }}%{% endif %}</span>
+    <span class="meta">{% if d.visto %}Visto {{ d.visto|timesince }}{% else %}Nunca{% endif %}</span>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="vacio">
+  <p style="font-weight:600">Todavía no hay equipos conectados.</p>
+  <p>Instala Candado AppLock en un teléfono, configúralo con la URL de este panel, y aparecerá aquí tras su primer sondeo.</p>
+</div>
+{% endif %}
+{% endblock %}
