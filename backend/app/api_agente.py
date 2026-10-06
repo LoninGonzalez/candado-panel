@@ -47,6 +47,14 @@ def checkin(request):
     disp.kiosco_activo = d.get("kiosco_activo", disp.kiosco_activo)
     disp.version_aplicada = d.get("version_aplicada", disp.version_aplicada)
     disp.visto = timezone.now()
+
+    # Consumo de datos reportado
+    consumo = d.get("consumo")
+    if isinstance(consumo, dict):
+        disp.consumo_total_mb = consumo.get("total_mb")
+        disp.consumo_por_app = consumo.get("por_app", {})
+        disp.tope_superado = bool(consumo.get("tope_superado"))
+
     disp.save()
 
     # Comandos pendientes

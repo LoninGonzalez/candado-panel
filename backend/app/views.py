@@ -129,6 +129,10 @@ def politica_editar(request, pk=None):
         nombre = request.POST.get("nombre", "").strip()
         clave = request.POST.get("clave", "").strip() or _slug(nombre)
         kiosco = request.POST.get("kiosco") == "on"
+        try:
+            tope_total = max(0, int(request.POST.get("tope_total_mb") or 0))
+        except ValueError:
+            tope_total = 0
 
         # Apps: paquetes separados por línea, con nombre opcional "paquete | Nombre"
         apps = []
@@ -141,10 +145,15 @@ def politica_editar(request, pk=None):
             if not PAQUETE_RE.match(paquete):
                 messages.error(request, f"Paquete no válido: {paquete}")
                 continue
+            try:
+                tope_app = max(0, int(partes[2])) if len(partes) > 2 and partes[2] else 0
+            except ValueError:
+                tope_app = 0
             apps.append({
                 "paquete": paquete,
                 "nombre": partes[1] if len(partes) > 1 else paquete,
                 "datos": True,
+                "tope_mensual_mb": tope_app,
             })
 
         restricciones = {c: (request.POST.get(f"r_{c}") == "on") for c, _, _ in RESTRICCIONES}
@@ -153,6 +162,7 @@ def politica_editar(request, pk=None):
             pol = Politica(clave=clave)
         pol.nombre = nombre
         pol.kiosco = kiosco
+        pol.tope_total_mb = tope_total
         pol.apps = apps
         pol.restricciones = restricciones
         pol.version = (pol.version + 1) if pol.pk else 1
@@ -165,7 +175,9 @@ def politica_editar(request, pk=None):
     valores_restr = {c: d for c, _, d in RESTRICCIONES}
     if pol:
         apps_texto = "\n".join(
-            f"{a['paquete']} | {a.get('nombre', a['paquete'])}" for a in pol.apps
+            f"{a['paquete']} | {a.get('nombre', a['paquete'])}"
+            + (f" | {a['tope_mensual_mb']}" if a.get('tope_mensual_mb') else "")
+            for a in pol.apps
         )
         valores_restr = {c: pol.restricciones.get(c, d) for c, _, d in RESTRICCIONES}
 

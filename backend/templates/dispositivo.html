@@ -28,6 +28,28 @@
   </div>
 
   <div class="tarjeta">
+    <h2>Consumo de datos (mes actual)</h2>
+    {% if d.consumo_total_mb is not None %}
+      <p style="font-size:1.4rem;font-weight:700;margin:.2rem 0">
+        {{ d.consumo_total_mb }} MB
+        {% if d.tope_superado %}<span class="et alerta">tope superado</span>{% endif %}
+      </p>
+      {% if d.consumo_por_app %}
+      <table class="tabla" style="margin-top:.5rem">
+        <thead><tr><th>App</th><th>Consumo</th></tr></thead>
+        <tbody>
+        {% for pkg, mb in d.consumo_por_app.items %}
+          <tr><td><code>{{ pkg }}</code></td><td>{{ mb }} MB</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    {% else %}
+      <p style="color:var(--pizarra)">Aún no hay datos de consumo. Aparecerán tras el próximo reporte del equipo.</p>
+    {% endif %}
+  </div>
+
+  <div class="tarjeta">
     <h2>Configuración</h2>
     <form method="post" action="{% url 'dispositivo_alias' d.pk %}">
       {% csrf_token %}

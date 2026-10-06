@@ -20,6 +20,7 @@ class Politica(models.Model):
     apps = models.JSONField(default=list, blank=True)
     # {"bloquear_reset": true, ...}
     restricciones = models.JSONField(default=dict, blank=True)
+    tope_total_mb = models.PositiveIntegerField(default=0, help_text="Tope mensual total del equipo en MB (0 = sin tope)")
     version = models.PositiveIntegerField(default=1)
     creada = models.DateTimeField(auto_now_add=True)
     actualizada = models.DateTimeField(auto_now=True)
@@ -37,6 +38,7 @@ class Politica(models.Model):
             "kiosco": self.kiosco,
             "apps": self.apps,
             "restricciones": self.restricciones,
+            "tope_total_mb": self.tope_total_mb,
         }
 
 
@@ -54,6 +56,10 @@ class Dispositivo(models.Model):
     version_aplicada = models.PositiveIntegerField(null=True, blank=True)
     visto = models.DateTimeField(null=True, blank=True)
     inscrito = models.DateTimeField(auto_now_add=True)
+    # Consumo de datos móviles del mes (reportado por el equipo)
+    consumo_total_mb = models.PositiveIntegerField(null=True, blank=True)
+    consumo_por_app = models.JSONField(default=dict, blank=True)  # {"com.app": mb}
+    tope_superado = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["alias", "modelo"]

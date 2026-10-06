@@ -11,12 +11,14 @@
     <label>Nombre<input name="nombre" value="{{ pol.nombre|default:'' }}" required placeholder="Ej.: Choferes zona norte"></label>
     {% if not pol %}<label>Identificador <small>(sin espacios; se genera del nombre si lo dejas vacío)</small><input name="clave" placeholder="choferes-zona-norte"></label>{% endif %}
     <label class="chk"><input type="checkbox" name="kiosco" {% if pol.kiosco %}checked{% endif %}> Modo kiosco (el equipo queda fijo en Candado)</label>
+    <label>Tope total de datos móviles al mes (MB) <small>(0 = sin tope; al superarlo se cortan los datos de todas las apps)</small>
+      <input type="number" name="tope_total_mb" min="0" value="{{ pol.tope_total_mb|default:0 }}"></label>
   </div>
 
   <div class="tarjeta">
     <h2>Apps permitidas</h2>
-    <p style="color:var(--pizarra);font-size:.9rem">Una por línea. Formato: <code>paquete | Nombre visible</code>. Todo lo que no esté aquí se oculta.</p>
-    <textarea name="apps" rows="7" placeholder="com.whatsapp | WhatsApp&#10;com.google.android.apps.maps | Maps">{{ apps_texto }}</textarea>
+    <p style="color:var(--pizarra);font-size:.9rem">Una por línea. Formato: <code>paquete | Nombre | tope_MB</code>. El tope es opcional (en MB al mes; al superarlo se cortan los datos de esa app). Todo lo que no esté aquí se oculta.</p>
+    <textarea name="apps" rows="7" placeholder="com.whatsapp | WhatsApp | 500&#10;com.google.android.apps.maps | Maps | 1024&#10;com.android.chrome | Chrome">{{ apps_texto }}</textarea>
   </div>
 
   <div class="tarjeta">
