@@ -38,8 +38,19 @@
       <table class="tabla" style="margin-top:.5rem">
         <thead><tr><th>App</th><th>Consumo</th></tr></thead>
         <tbody>
-        {% for pkg, mb in d.consumo_por_app.items %}
-          <tr><td><code>{{ pkg }}</code></td><td>{{ mb }} MB</td></tr>
+        {% for pkg, info in d.consumo_por_app.items %}
+          <tr>
+            <td>
+              <div style="display:flex;align-items:center;gap:.6rem">
+                <span class="appicono">{{ info.nombre|default:pkg|first|upper }}</span>
+                <div>
+                  <div style="font-weight:600">{{ info.nombre|default:pkg }}</div>
+                  <code style="font-size:.78rem">{{ pkg }}</code>
+                </div>
+              </div>
+            </td>
+            <td>{% if info.mb is not None %}{{ info.mb }}{% else %}{{ info }}{% endif %} MB</td>
+          </tr>
         {% endfor %}
         </tbody>
       </table>
