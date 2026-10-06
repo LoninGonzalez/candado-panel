@@ -77,25 +77,21 @@ El endpoint que consume es `POST /api/checkin/` con cabecera `X-Token`.
 Ambas requieren la cabecera `X-Token: <AGENTE_TOKEN>`.
 
 
-## Aplicaciones (subir APK al panel)
+## Aplicaciones (instalar apps en los equipos)
 
-Los APK se **suben directamente al panel** y se guardan en la base de datos; no necesitas
-un servidor de archivos aparte.
+Los APK se alojan en una **URL pública con HTTPS** (tu Cloudflare Pages) y el panel
+guarda las URLs. Los archivos no pasan por el servidor del panel (evita problemas de
+memoria en hostings pequeños).
 
-1. **Aplicaciones → Agregar**: nombre, paquete, y selecciona el/los archivo(s) APK.
-2. Si la app viene **dividida** de Google Play (base.apk + split_config.*), selecciona
-   todos los archivos a la vez. El panel detecta el base solo.
-3. El panel guarda los APK y los sirve a los teléfonos (con token, de forma privada).
-4. Entra a un equipo → **Instalar** → elige la app. Candado la descarga e instala.
+1. Sube el/los APK a tu Cloudflare Pages.
+2. **Aplicaciones → Agregar**: nombre, paquete, URL del APK base, y si la app viene
+   **dividida** de Google Play, las URLs de los splits (una por línea).
+3. Entra a un equipo → **Instalar** → elige la app. Candado descarga los APK e instala,
+   conservando la firma original (así siguen recibiendo actualizaciones).
 
-**Extraer los APK de una app ya instalada** (para subirla al panel):
+**Extraer los APK de una app ya instalada** (para subirlos a Cloudflare):
 ```
 adb shell pm path com.ejemplo.app      # lista los APK (base + splits)
 adb pull /data/app/.../base.apk
 adb pull /data/app/.../split_config.arm64_v8a.apk   # uno por cada split
 ```
-Luego subes esos archivos al panel.
-
-**Nota sobre Render gratis**: los APK van en la base de datos (que sí persiste), no en
-disco (que es efímero en Render). La BD gratuita son 1 GB; suficiente para varias apps.
-Para muchas apps grandes, sube al plan de pago.

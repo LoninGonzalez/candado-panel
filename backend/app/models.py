@@ -104,10 +104,15 @@ class Comando(models.Model):
 
 
 class Aplicacion(models.Model):
-    """Catálogo de apps instalables. Los APK se guardan en la BD (modelo ArchivoApk)."""
+    """Catálogo de apps instalables, por URL (APK alojado en Cloudflare u otro HTTPS)."""
 
     nombre = models.CharField(max_length=120)
     paquete = models.CharField(max_length=150)
+    url = models.URLField(help_text="URL del APK base (https)")
+    urls_splits = models.TextField(
+        blank=True,
+        help_text="URLs de los splits (split_config.*), una por línea. Vacío si es un solo APK.",
+    )
     notas = models.CharField(max_length=200, blank=True)
     creada = models.DateTimeField(auto_now_add=True)
 
@@ -117,36 +122,15 @@ class Aplicacion(models.Model):
     def __str__(self):
         return f"{self.nombre} ({self.paquete})"
 
-    def lista_urls(self, base_url, token=""):
-        """URLs internas para que el teléfono descargue cada APK. base primero."""
-        sufijo = f"?token={token}" if token else ""
-        return [base_url.rstrip("/") + a.ruta_descarga() + sufijo for a in self.archivos.all()]
+    def lista_urls(self):
+        """Todas las URLs a instalar: base primero, luego los splits."""
+        urls = [self.url.strip()] if self.url.strip() else []
+        for linea in self.urls_splits.splitlines():
+            linea = linea.strip()
+            if linea:
+                urls.append(linea)
+        return urls
 
     @property
     def es_dividida(self):
-        return self.archivos.count() > 1
-
-    @property
-    def total_mb(self):
-        total = sum(a.tamano for a in self.archivos.all())
-        return round(total / 1048576, 1)
-
-
-class ArchivoApk(models.Model):
-    """Un APK (base o split) guardado como bytes en la base de datos."""
-
-    aplicacion = models.ForeignKey(Aplicacion, on_delete=models.CASCADE, related_name="archivos")
-    nombre = models.CharField(max_length=160)  # p. ej. base.apk
-    contenido = models.BinaryField()
-    tamano = models.PositiveIntegerField(default=0)
-    es_base = models.BooleanField(default=False)
-    orden = models.PositiveIntegerField(default=0)
-
-    class Meta:
-        ordering = ["-es_base", "orden", "nombre"]
-
-    def __str__(self):
-        return self.nombre
-
-    def ruta_descarga(self):
-        return f"/apk/{self.id}/{self.nombre}"
+        return bool(self.urls_splits.strip())
