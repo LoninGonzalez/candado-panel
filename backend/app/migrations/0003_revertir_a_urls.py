@@ -2,7 +2,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    dependencies = [("app", "0002_aplicacion_urls_splits_alter_aplicacion_url")]
+    dependencies = [("app", "0002_remove_aplicacion_url_archivoapk")]
 
     operations = [
         migrations.DeleteModel(name="ArchivoApk"),
