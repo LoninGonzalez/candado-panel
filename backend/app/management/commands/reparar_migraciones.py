@@ -30,10 +30,11 @@ class Command(BaseCommand):
             for modelo in app_config.get_models():
                 tabla = modelo._meta.db_table
                 if tabla not in tablas:
+                    # create_model crea la tabla y sus relaciones M2M de una vez.
                     editor.create_model(modelo)
                     self.stdout.write(f"Tabla {tabla} creada.")
                     continue
-                # Añadir columnas que falten
+                # Añadir columnas normales que falten
                 cols_reales = {c.name for c in connection.introspection.get_table_description(
                     connection.cursor(), tabla
                 )}
@@ -41,6 +42,13 @@ class Command(BaseCommand):
                     if campo.column not in cols_reales:
                         editor.add_field(modelo, campo)
                         self.stdout.write(f"Columna {tabla}.{campo.column} añadida.")
+                # Añadir tablas intermedias de M2M que falten (p. ej. dispositivo-grupos)
+                tablas_actuales = connection.introspection.table_names()
+                for campo in modelo._meta.local_many_to_many:
+                    m2m_tabla = campo.remote_field.through._meta.db_table
+                    if m2m_tabla not in tablas_actuales:
+                        editor.add_field(modelo, campo)
+                        self.stdout.write(f"Tabla intermedia {m2m_tabla} creada.")
 
         # Marcar todas las migraciones de 'app' como aplicadas
         import os

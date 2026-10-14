@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .models import Aplicacion, Comando, Dispositivo, Politica
+from .models import Aplicacion, Comando, Dispositivo, Grupo, Politica, VersionApp
 
 PAQUETE_RE = re.compile(r"^[a-zA-Z][\w]*(\.[a-zA-Z][\w]*)+$")
 
@@ -46,7 +46,15 @@ def salir(request):
 
 @login_required
 def inicio(request):
-    disp = list(Dispositivo.objects.select_related("politica"))
+    qs = Dispositivo.objects.select_related("politica").prefetch_related("grupos")
+    # Filtro opcional por grupo
+    grupo_id = request.GET.get("grupo")
+    grupo_sel = None
+    if grupo_id:
+        grupo_sel = Grupo.objects.filter(pk=grupo_id).first()
+        if grupo_sel:
+            qs = qs.filter(grupos=grupo_sel)
+    disp = list(qs)
     en_linea = sum(1 for d in disp if d.en_linea)
     desactualizados = sum(1 for d in disp if not d.al_dia)
     return render(request, "dispositivos.html", {
@@ -56,6 +64,8 @@ def inicio(request):
         "total": len(disp),
         "desactualizados": desactualizados,
         "politicas": Politica.objects.all(),
+        "grupos": Grupo.objects.all(),
+        "grupo_sel": grupo_sel,
     })
 
 
@@ -66,6 +76,9 @@ def dispositivo(request, pk):
         "seccion": "disp",
         "d": d,
         "politicas": Politica.objects.all(),
+        "grupos": Grupo.objects.all(),
+        "grupos_del_equipo": set(d.grupos.values_list("pk", flat=True)),
+        "politica_efectiva": d.politica_efectiva(),
         "apps": Aplicacion.objects.all(),
         "comandos": d.comandos.all()[:20],
     })
@@ -91,6 +104,65 @@ def dispositivo_politica(request, pk):
     d.save(update_fields=["politica", "version_aplicada"])
     messages.success(request, "Política asignada. El equipo la aplicará en el próximo sondeo.")
     return redirect("dispositivo", pk=pk)
+
+
+@login_required
+@require_POST
+def dispositivo_grupos(request, pk):
+    d = get_object_or_404(Dispositivo, pk=pk)
+    ids = request.POST.getlist("grupos")
+    d.grupos.set(Grupo.objects.filter(pk__in=ids))
+    d.version_aplicada = None  # por si cambió la política heredada
+    d.save(update_fields=["version_aplicada"])
+    messages.success(request, "Grupos actualizados.")
+    return redirect("dispositivo", pk=pk)
+
+
+# -------- Grupos --------
+
+@login_required
+def grupos(request):
+    gs = Grupo.objects.select_related("politica").annotate(n=Count("dispositivos"))
+    return render(request, "grupos.html", {"seccion": "grupo", "grupos": gs})
+
+
+@login_required
+def grupo_editar(request, pk=None):
+    g = get_object_or_404(Grupo, pk=pk) if pk else None
+    if request.method == "POST":
+        nombre = request.POST.get("nombre", "").strip()
+        if not nombre:
+            messages.error(request, "El grupo necesita un nombre.")
+            return redirect("grupos")
+        pol = Politica.objects.filter(pk=request.POST.get("politica")).first()
+        try:
+            orden = max(0, int(request.POST.get("orden") or 0))
+        except ValueError:
+            orden = 0
+        if g is None:
+            g = Grupo()
+        g.nombre = nombre
+        g.descripcion = request.POST.get("descripcion", "").strip()
+        g.politica = pol
+        g.orden = orden
+        g.save()
+        # Al cambiar la política del grupo, forzar re-sincronización de sus equipos
+        g.dispositivos.update(version_aplicada=None)
+        messages.success(request, "Grupo guardado.")
+        return redirect("grupos")
+    return render(request, "grupo_editar.html", {
+        "seccion": "grupo", "g": g, "politicas": Politica.objects.all(),
+    })
+
+
+@login_required
+@require_POST
+def grupo_borrar(request, pk):
+    g = get_object_or_404(Grupo, pk=pk)
+    g.dispositivos.update(version_aplicada=None)  # recalcular política al perder el grupo
+    g.delete()
+    messages.success(request, "Grupo eliminado.")
+    return redirect("grupos")
 
 
 @login_required
@@ -218,3 +290,49 @@ def aplicaciones(request):
 def aplicacion_borrar(request, pk):
     get_object_or_404(Aplicacion, pk=pk).delete()
     return redirect("aplicaciones")
+
+
+# -------- Auto-actualización de la app --------
+
+@login_required
+def actualizacion(request):
+    if request.method == "POST":
+        try:
+            vc = int(request.POST.get("version_code") or 0)
+        except ValueError:
+            vc = 0
+        vn = request.POST.get("version_name", "").strip()
+        url = request.POST.get("url", "").strip()
+        if vc <= 0 or not vn or not url:
+            messages.error(request, "Completa versionCode, versionName y la URL del APK.")
+            return redirect("actualizacion")
+        VersionApp.objects.create(
+            version_code=vc, version_name=vn, url=url,
+            notas=request.POST.get("notas", "").strip(),
+            activa=True,
+        )
+        messages.success(request, f"Versión {vn} publicada. Los equipos se actualizarán en su próximo sondeo.")
+        return redirect("actualizacion")
+
+    versiones = VersionApp.objects.all()[:20]
+    equipos = Dispositivo.objects.all()
+    actual = VersionApp.actual()
+    # Cuántos equipos están ya en la versión disponible (comparando versionName)
+    al_dia = sum(1 for e in equipos if actual and e.app_version == actual.version_name)
+    return render(request, "actualizacion.html", {
+        "seccion": "upd",
+        "versiones": versiones,
+        "actual": actual,
+        "total_equipos": equipos.count(),
+        "al_dia": al_dia,
+    })
+
+
+@login_required
+@require_POST
+def actualizacion_alternar(request, pk):
+    v = get_object_or_404(VersionApp, pk=pk)
+    v.activa = not v.activa
+    v.save(update_fields=["activa"])
+    messages.success(request, "Estado de la versión actualizado.")
+    return redirect("actualizacion")

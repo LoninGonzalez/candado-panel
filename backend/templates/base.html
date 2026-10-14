@@ -71,8 +71,10 @@ label small{font-weight:400;color:var(--pizarra)}
   <aside class="lateral">
     <div class="marca"><span class="marca-i"></span>Candado</div>
     <a href="{% url 'inicio' %}" class="{% if seccion == 'disp' %}on{% endif %}">Equipos</a>
+    <a href="{% url 'grupos' %}" class="{% if seccion == 'grupo' %}on{% endif %}">Grupos</a>
     <a href="{% url 'politicas' %}" class="{% if seccion == 'pol' %}on{% endif %}">Políticas</a>
     <a href="{% url 'aplicaciones' %}" class="{% if seccion == 'app' %}on{% endif %}">Aplicaciones</a>
+    <a href="{% url 'actualizacion' %}" class="{% if seccion == 'upd' %}on{% endif %}">Actualizar app</a>
     <div class="pie"><a href="{% url 'salir' %}">Salir ({{ user.username }})</a></div>
   </aside>
   <main class="contenido">

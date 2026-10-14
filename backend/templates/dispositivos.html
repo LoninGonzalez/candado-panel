@@ -12,6 +12,15 @@
   </div>
 </div>
 
+{% if grupos %}
+<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1.25rem">
+  <a href="{% url 'inicio' %}" class="boton mini {% if not grupo_sel %}{% else %}sec{% endif %}">Todos</a>
+  {% for g in grupos %}
+  <a href="{% url 'inicio' %}?grupo={{ g.pk }}" class="boton mini {% if grupo_sel.pk == g.pk %}{% else %}sec{% endif %}">{{ g.nombre }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% if dispositivos %}
 <div class="rejilla">
   {% for d in dispositivos %}
@@ -19,7 +28,7 @@
     <span class="bocina"></span>
     <span class="nom">{{ d.alias|default:d.modelo|default:"Equipo" }}</span>
     <span class="meta">{% if d.en_linea %}En línea{% else %}Desconectado{% endif %}</span>
-    <span class="meta">{{ d.politica.nombre|default:"Sin política" }}</span>
+    <span class="meta">{{ d.politica_efectiva.nombre|default:"Sin política" }}</span>
     <span class="meta">{% if d.bateria is not None %}Batería {{ d.bateria }}%{% endif %}</span>
     <span class="meta">{% if d.visto %}Visto {{ d.visto|timesince }}{% else %}Nunca{% endif %}</span>
   </a>

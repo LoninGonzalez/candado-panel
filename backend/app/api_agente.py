@@ -5,7 +5,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from .models import Comando, Dispositivo, Politica
+from .models import Comando, Dispositivo, Politica, VersionApp
 
 
 def token_valido(request):
@@ -72,14 +72,29 @@ def checkin(request):
         c.entregado = timezone.now()
         c.save(update_fields=["estado", "entregado"])
 
-    # Política: se envía solo si el equipo no está al día
+    # Política: la efectiva (directa del equipo, o heredada de un grupo).
+    # Se envía solo si el equipo no está al día con esa versión.
+    pol = disp.politica_efectiva()
     politica = None
-    if disp.politica and disp.version_aplicada != disp.politica.version:
-        politica = disp.politica.como_agente()
+    if pol and disp.version_aplicada != pol.version:
+        politica = pol.como_agente()
+
+    # Auto-actualización de la app: si el panel tiene una versión más nueva que la del
+    # equipo, se le indica que descargue e instale el APK.
+    actualizacion = None
+    version = VersionApp.actual()
+    mi_code = d.get("version_code")  # versionCode que reporta el equipo
+    if version and isinstance(mi_code, int) and version.version_code > mi_code:
+        actualizacion = {
+            "version_code": version.version_code,
+            "version_name": version.version_name,
+            "url": version.url,
+        }
 
     return Response({
         "politica": politica,
         "comandos": comandos,
+        "actualizacion": actualizacion,
         "intervalo_seg": 120,
     })
 

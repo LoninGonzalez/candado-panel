@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block titulo %}Actualizar app{% endblock %}
+{% block contenido %}
+<div class="cab"><div><h1>Actualizar Candado AppLock</h1><div class="resumen">Publica una versión nueva y los equipos se actualizan solos en su próximo sondeo.</div></div></div>
+
+{% if actual %}
+<div class="tarjeta">
+  <h2>Versión que se está repartiendo</h2>
+  <p style="font-size:1.4rem;font-weight:700;margin:.2rem 0">Candado v{{ actual.version_name }} <small style="font-weight:400;color:var(--pizarra)">(code {{ actual.version_code }})</small></p>
+  <p style="color:var(--pizarra);margin:.2rem 0">{{ al_dia }} de {{ total_equipos }} equipo{{ total_equipos|pluralize }} ya en esta versión.</p>
+</div>
+{% endif %}
+
+<div class="tarjeta">
+  <h2>Publicar una versión nueva</h2>
+  <p style="color:var(--pizarra);font-size:.9rem">
+    Sube el APK firmado (con tu misma keystore de siempre) a Cloudflare y pega la URL aquí.
+    El <code>versionCode</code> debe ser mayor que el de la versión instalada en los equipos.
+  </p>
+  <form method="post">
+    {% csrf_token %}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <label>versionCode <small>(el número que subes en build.gradle)</small><input type="number" name="version_code" min="1" required placeholder="18"></label>
+      <label>versionName <small>(visible)</small><input name="version_name" required placeholder="0.8.0"></label>
+    </div>
+    <label>URL del APK firmado<input type="url" name="url" required placeholder="https://candado-54a.pages.dev/candado.apk"></label>
+    <label>Notas <small>(opcional)</small><input name="notas" placeholder="Corrige el kiosco en Xiaomi"></label>
+    <button class="boton">Publicar versión</button>
+  </form>
+</div>
+
+{% if versiones %}
+<div class="tarjeta">
+  <h2>Historial de versiones</h2>
+  <table class="tabla">
+    <thead><tr><th>Versión</th><th>Code</th><th>Estado</th><th>Publicada</th><th></th></tr></thead>
+    <tbody>
+    {% for v in versiones %}
+      <tr>
+        <td>v{{ v.version_name }}{% if v.notas %}<br><small style="color:var(--pizarra)">{{ v.notas }}</small>{% endif %}</td>
+        <td>{{ v.version_code }}</td>
+        <td>{% if v.activa %}<span class="et ok">activa</span>{% else %}<span class="et gris">inactiva</span>{% endif %}</td>
+        <td>{{ v.actualizada|timesince }} atrás</td>
+        <td><form method="post" action="{% url 'actualizacion_alternar' v.pk %}">{% csrf_token %}<button class="boton sec mini">{% if v.activa %}Desactivar{% else %}Activar{% endif %}</button></form></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<div class="tarjeta">
+  <h2>Cómo funciona</h2>
+  <p style="color:var(--pizarra);font-size:.92rem;margin:.3rem 0">
+    1. Compila la versión nueva subiendo el <code>versionCode</code> en <code>build.gradle.kts</code>.<br>
+    2. Firma el APK con <strong>la misma keystore</strong> de siempre (obligatorio, o los equipos lo rechazan).<br>
+    3. Súbelo a Cloudflare y publícalo aquí con su versionCode y URL.<br>
+    4. Cada equipo, en su próximo sondeo, ve que hay una versión más nueva, la descarga y se instala solo.<br>
+    No necesitas tocar los equipos físicamente.
+  </p>
+</div>
+{% endblock %}

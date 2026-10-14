@@ -42,11 +42,36 @@ class Politica(models.Model):
         }
 
 
+class Grupo(models.Model):
+    """Agrupa equipos (por sucursal, tipo de trabajo, etc.). Puede tener una política
+    que heredan los equipos del grupo que no tengan política directa propia."""
+
+    nombre = models.CharField(max_length=100)
+    descripcion = models.CharField(max_length=200, blank=True)
+    politica = models.ForeignKey(
+        Politica, null=True, blank=True, on_delete=models.SET_NULL, related_name="grupos",
+    )
+    # Orden para desempatar cuando un equipo está en varios grupos (menor = más prioritario)
+    orden = models.PositiveIntegerField(default=0)
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["orden", "nombre"]
+
+    def __str__(self):
+        return self.nombre
+
+
 class Dispositivo(models.Model):
     # android_id que envía el teléfono; lo identifica de forma estable
     uid = models.CharField(max_length=80, unique=True)
     alias = models.CharField(max_length=100, blank=True)
-    politica = models.ForeignKey(Politica, null=True, blank=True, on_delete=models.SET_NULL)
+    # Política directa del equipo: si está puesta, manda sobre la de cualquier grupo.
+    politica = models.ForeignKey(
+        Politica, null=True, blank=True, on_delete=models.SET_NULL,
+        verbose_name="Política directa",
+    )
+    grupos = models.ManyToManyField(Grupo, blank=True, related_name="dispositivos")
     modelo = models.CharField(max_length=100, blank=True)
     marca = models.CharField(max_length=80, blank=True)
     android = models.CharField(max_length=20, blank=True)
@@ -77,9 +102,21 @@ class Dispositivo(models.Model):
             return False
         return (timezone.now() - self.visto).total_seconds() < 600  # 10 min
 
+    def politica_efectiva(self):
+        """La política que realmente aplica al equipo:
+        1) la directa del equipo si la tiene; 2) si no, la del primer grupo
+        (por orden) que tenga política; 3) si no, None."""
+        if self.politica_id:
+            return self.politica
+        for g in self.grupos.all():
+            if g.politica_id:
+                return g.politica
+        return None
+
     @property
     def al_dia(self):
-        return bool(self.politica and self.version_aplicada == self.politica.version)
+        pol = self.politica_efectiva()
+        return bool(pol and self.version_aplicada == pol.version)
 
 
 class Comando(models.Model):
@@ -144,3 +181,26 @@ class Aplicacion(models.Model):
     @property
     def es_dividida(self):
         return bool(self.urls_splits.strip())
+
+
+class VersionApp(models.Model):
+    """Versión de Candado AppLock disponible para auto-actualización.
+    Hay una sola fila: la última versión que se reparte a los equipos."""
+
+    version_code = models.PositiveIntegerField(help_text="versionCode del APK nuevo (número que sube en cada versión)")
+    version_name = models.CharField(max_length=20, help_text="versionName visible, ej. 0.8.0")
+    url = models.URLField(help_text="URL pública del APK firmado (https)")
+    activa = models.BooleanField(default=True, help_text="Si está activa, los equipos se actualizan solos")
+    notas = models.CharField(max_length=200, blank=True)
+    actualizada = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-version_code"]
+
+    def __str__(self):
+        return f"Candado v{self.version_name} ({self.version_code})"
+
+    @classmethod
+    def actual(cls):
+        """La versión disponible activa, o None."""
+        return cls.objects.filter(activa=True).order_by("-version_code").first()

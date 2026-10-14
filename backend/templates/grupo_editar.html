@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block titulo %}{% if g %}{{ g.nombre }}{% else %}Nuevo grupo{% endif %}{% endblock %}
+{% block contenido %}
+<div class="cab"><div><h1>{% if g %}{{ g.nombre }}{% else %}Nuevo grupo{% endif %}</h1></div></div>
+
+<form method="post">
+  {% csrf_token %}
+  <div class="tarjeta">
+    <label>Nombre<input name="nombre" value="{{ g.nombre|default:'' }}" required placeholder="Ej.: Sucursal Santiago"></label>
+    <label>Descripción <small>(opcional)</small><input name="descripcion" value="{{ g.descripcion|default:'' }}" placeholder="Choferes de la zona norte"></label>
+    <label>Política del grupo <small>(todos los equipos del grupo la heredan, salvo que tengan política directa propia)</small>
+      <select name="politica">
+        <option value="">Sin política</option>
+        {% for p in politicas %}<option value="{{ p.pk }}" {% if g.politica_id == p.pk %}selected{% endif %}>{{ p.nombre }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Prioridad <small>(menor = más prioritario cuando un equipo está en varios grupos)</small>
+      <input type="number" name="orden" min="0" value="{{ g.orden|default:0 }}"></label>
+  </div>
+  <div style="display:flex;gap:.5rem">
+    <button class="boton">Guardar grupo</button>
+    <a href="{% url 'grupos' %}" class="boton sec">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

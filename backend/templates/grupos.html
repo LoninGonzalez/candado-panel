@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block titulo %}Grupos{% endblock %}
+{% block contenido %}
+<div class="cab">
+  <div><h1>Grupos</h1><div class="resumen">Organiza los equipos por sucursal, tipo de trabajo, etc. Un grupo puede asignar una política a todos sus equipos.</div></div>
+  <a href="{% url 'grupo_nuevo' %}" class="boton">Crear grupo</a>
+</div>
+{% if grupos %}
+<table class="tabla">
+  <thead><tr><th>Nombre</th><th>Política del grupo</th><th>Equipos</th><th>Prioridad</th><th></th></tr></thead>
+  <tbody>
+  {% for g in grupos %}
+    <tr>
+      <td><a href="{% url 'grupo_editar' g.pk %}">{{ g.nombre }}</a>{% if g.descripcion %}<br><small style="color:var(--pizarra)">{{ g.descripcion }}</small>{% endif %}</td>
+      <td>{{ g.politica.nombre|default:"—" }}</td>
+      <td><a href="{% url 'inicio' %}?grupo={{ g.pk }}">{{ g.n }} equipo{{ g.n|pluralize }}</a></td>
+      <td>{{ g.orden }}</td>
+      <td><form method="post" action="{% url 'grupo_borrar' g.pk %}" onsubmit="return confirm('¿Borrar este grupo? Los equipos no se borran, solo salen del grupo.')">{% csrf_token %}<button class="boton peligro mini">Borrar</button></form></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p style="color:var(--pizarra);font-size:.9rem;margin-top:1rem">
+  La <strong>prioridad</strong> desempata cuando un equipo está en varios grupos: gana el de número más bajo.
+  Y si un equipo tiene política directa propia, esa manda sobre cualquier grupo.
+</p>
+{% else %}
+<div class="vacio"><p style="font-weight:600">Aún no hay grupos.</p><p>Crea uno para agrupar equipos, por ejemplo por sucursal o por tipo de trabajo.</p></div>
+{% endif %}
+{% endblock %}

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load l10n %}
 {% block titulo %}{{ d }}{% endblock %}
 {% block contenido %}
 <div class="cab">
@@ -21,15 +22,21 @@
       <dt>Android</dt><dd>{{ d.android|default:"—" }}</dd>
       <dt>Versión app</dt><dd>{{ d.app_version|default:"—" }}</dd>
       <dt>Batería</dt><dd>{% if d.bateria is not None %}{{ d.bateria }}%{% else %}—{% endif %}</dd>
-      <dt>Política</dt><dd>{{ d.politica.nombre|default:"Sin asignar" }}
-        {% if d.politica %}{% if d.al_dia %}<span class="et ok">al día</span>{% else %}<span class="et alerta">pendiente</span>{% endif %}{% endif %}</dd>
+      <dt>Política activa</dt>
+      <dd>
+        {% if politica_efectiva %}{{ politica_efectiva.nombre }}
+          {% if d.al_dia %}<span class="et ok">al día</span>{% else %}<span class="et alerta">pendiente</span>{% endif %}
+          <br><small style="color:var(--pizarra)">{% if d.politica %}asignada directamente{% else %}heredada de un grupo{% endif %}</small>
+        {% else %}Sin asignar{% endif %}
+      </dd>
+      {% if d.grupos.all %}
+      <dt>Grupos</dt>
+      <dd>{% for g in d.grupos.all %}<span class="et gris">{{ g.nombre }}</span> {% endfor %}</dd>
+      {% endif %}
       <dt>Inscrito</dt><dd>{{ d.inscrito|date:"d/m/Y H:i" }}</dd>
       {% if d.lat and d.lon %}
       <dt>Ubicación</dt>
-      <dd>
-        <a href="https://www.google.com/maps?q={{ d.lat }},{{ d.lon }}" target="_blank">Ver en el mapa</a>
-        <br><small style="color:var(--pizarra)">{{ d.ubicacion_en|timesince }} atrás</small>
-      </dd>
+      <dd>{{ d.ubicacion_en|timesince }} atrás</dd>
       {% endif %}
     </dl>
   </div>
@@ -75,16 +82,45 @@
     </form>
     <form method="post" action="{% url 'dispositivo_politica' d.pk %}">
       {% csrf_token %}
-      <label>Política<div class="fila">
+      <label>Política directa <small>(opcional; si la pones, manda sobre la del grupo)</small>
+      <div class="fila">
         <select name="politica">
-          <option value="">Sin política</option>
+          <option value="">Sin política directa (usar la del grupo)</option>
           {% for p in politicas %}<option value="{{ p.pk }}" {% if d.politica_id == p.pk %}selected{% endif %}>{{ p.nombre }}</option>{% endfor %}
         </select>
         <button class="boton sec">Asignar</button>
       </div></label>
     </form>
+    <form method="post" action="{% url 'dispositivo_grupos' d.pk %}">
+      {% csrf_token %}
+      <label>Grupos</label>
+      {% if grupos %}
+        <div style="display:flex;flex-direction:column;gap:.3rem;margin-bottom:.6rem">
+          {% for g in grupos %}
+          <label class="chk" style="font-weight:400;margin:0">
+            <input type="checkbox" name="grupos" value="{{ g.pk }}" {% if g.pk in grupos_del_equipo %}checked{% endif %}>
+            {{ g.nombre }}{% if g.politica %} <small style="color:var(--pizarra)">· {{ g.politica.nombre }}</small>{% endif %}
+          </label>
+          {% endfor %}
+        </div>
+        <button class="boton sec">Guardar grupos</button>
+      {% else %}
+        <p style="color:var(--pizarra);font-size:.9rem">No hay grupos aún. <a href="{% url 'grupo_nuevo' %}">Crea uno</a>.</p>
+      {% endif %}
+    </form>
   </div>
 </div>
+
+{% if d.lat and d.lon %}
+<div class="tarjeta">
+  <h2>Ubicación</h2>
+  <p style="color:var(--pizarra);margin:0 0 .75rem">
+    Última ubicación reportada · {{ d.ubicacion_en|timesince }} atrás ·
+    {% localize off %}<a href="https://www.google.com/maps?q={{ d.lat }},{{ d.lon }}" target="_blank">abrir en Google Maps</a>{% endlocalize %}
+  </p>
+  <div id="mapa" style="height:320px;border-radius:var(--radio);overflow:hidden;z-index:0"></div>
+</div>
+{% endif %}
 
 <div class="tarjeta">
   <h2>Acciones</h2>
@@ -127,4 +163,22 @@
   </table>
   {% else %}<p style="color:var(--pizarra)">Aún no se han enviado comandos a este equipo.</p>{% endif %}
 </div>
+
+{% if d.lat and d.lon %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+  (function () {
+    {% localize off %}var lat = {{ d.lat }}, lon = {{ d.lon }};{% endlocalize %}
+    var mapa = L.map('mapa').setView([lat, lon], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(mapa);
+    L.marker([lat, lon]).addTo(mapa)
+      .bindPopup("{{ d.alias|default:d.modelo|default:'Equipo'|escapejs }}")
+      .openPopup();
+  })();
+</script>
+{% endif %}
 {% endblock %}
