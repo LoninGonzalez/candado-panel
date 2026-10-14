@@ -171,10 +171,11 @@
   (function () {
     {% localize off %}var lat = {{ d.lat }}, lon = {{ d.lon }};{% endlocalize %}
     var mapa = L.map('mapa').setView([lat, lon], 15);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      maxZoom: 20,
-      subdomains: 'abcd',
-      attribution: '© OpenStreetMap, © CARTO'
+    // Los tiles los sirve el propio panel (proxy a OpenStreetMap), así funcionan en
+    // cualquier navegador sin bloqueos de referrer/403.
+    L.tileLayer('/tile/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
     }).addTo(mapa);
     L.marker([lat, lon]).addTo(mapa)
       .bindPopup("{{ d.alias|default:d.modelo|default:'Equipo'|escapejs }}")

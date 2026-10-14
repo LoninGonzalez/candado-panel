@@ -336,3 +336,42 @@ def actualizacion_alternar(request, pk):
     v.save(update_fields=["activa"])
     messages.success(request, "Estado de la versión actualizado.")
     return redirect("actualizacion")
+
+
+# -------- Proxy de tiles del mapa --------
+# El navegador pide las imágenes del mapa a este panel, y el panel las obtiene de
+# OpenStreetMap identificándose con un User-Agent válido. Así el mapa funciona en
+# cualquier navegador (incluido Brave con privacidad estricta) sin bloqueos 403.
+
+import urllib.request as _urlreq
+from django.core.cache import caches
+from django.http import HttpResponse as _HttpResponse, Http404 as _Http404
+from django.views.decorators.cache import cache_control as _cache_control
+
+_TILE_CACHE = {}  # cache simple en memoria del proceso: {(z,x,y): bytes}
+_TILE_CACHE_MAX = 500
+
+
+@login_required
+@_cache_control(max_age=86400)
+def tile(request, z, x, y):
+    """Sirve una imagen de mapa (tile) de OpenStreetMap, con caché en memoria."""
+    if not (0 <= z <= 19):
+        raise _Http404
+    clave = (z, x, y)
+    datos = _TILE_CACHE.get(clave)
+    if datos is None:
+        url = f"https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        req = _urlreq.Request(url, headers={
+            "User-Agent": "CandadoPanel/1.0 (MDM de flota; contacto: admin)",
+        })
+        try:
+            with _urlreq.urlopen(req, timeout=10) as resp:
+                datos = resp.read()
+        except Exception:
+            raise _Http404
+        # Cache acotado: si se llena, se vacía (simple, suficiente para pocas vistas)
+        if len(_TILE_CACHE) >= _TILE_CACHE_MAX:
+            _TILE_CACHE.clear()
+        _TILE_CACHE[clave] = datos
+    return _HttpResponse(datos, content_type="image/png")
