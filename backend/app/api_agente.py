@@ -5,7 +5,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from .models import Comando, Dispositivo, Politica, VersionApp
+from .models import AppConocida, Comando, Dispositivo, Politica, VersionApp
 
 
 def token_valido(request):
@@ -62,6 +62,17 @@ def checkin(request):
         disp.tope_superado = bool(consumo.get("tope_superado"))
 
     disp.save()
+
+    # Catálogo de apps: guardar las apps instaladas que reporta el equipo
+    instaladas = d.get("apps_instaladas")
+    if isinstance(instaladas, list):
+        for a in instaladas[:200]:
+            pkg = (a or {}).get("paquete", "").strip()
+            nombre = (a or {}).get("nombre", "").strip() or pkg
+            if pkg:
+                AppConocida.objects.update_or_create(
+                    paquete=pkg, defaults={"nombre": nombre, "origen": "equipo"},
+                )
 
     # Comandos pendientes
     pendientes = disp.comandos.filter(estado=Comando.Estado.PENDIENTE)

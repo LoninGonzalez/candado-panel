@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .models import Aplicacion, Comando, Dispositivo, Grupo, Politica, VersionApp
+from .models import AppConocida, Aplicacion, Comando, Dispositivo, Grupo, Politica, VersionApp
 
 PAQUETE_RE = re.compile(r"^[a-zA-Z][\w]*(\.[a-zA-Z][\w]*)+$")
 
@@ -217,9 +217,25 @@ def politica_editar(request, pk=None):
         except ValueError:
             tope_total = 0
 
-        # Apps: paquetes separados por línea, con nombre opcional "paquete | Nombre"
+        # Apps elegidas en el catálogo (checkbox "permitida").
         apps = []
-        for linea in request.POST.get("apps", "").splitlines():
+        vistos = set()
+        for pkg in request.POST.getlist("app_sel"):
+            pkg = pkg.strip()
+            if not pkg or pkg in vistos or not PAQUETE_RE.match(pkg):
+                continue
+            vistos.add(pkg)
+            nombre_app = request.POST.get(f"nombre_{pkg}", "").strip() or pkg
+            apps.append({
+                "paquete": pkg,
+                "nombre": nombre_app,
+                "datos": request.POST.get(f"datos_{pkg}") == "on",
+                "tope_mensual_mb": _entero(request.POST.get(f"tope_{pkg}")),
+            })
+
+        # Apps agregadas a mano (paquetes que no están en el catálogo todavía).
+        # Formato por línea: paquete | Nombre | tope_MB
+        for linea in request.POST.get("apps_manual", "").splitlines():
             linea = linea.strip()
             if not linea:
                 continue
@@ -228,16 +244,21 @@ def politica_editar(request, pk=None):
             if not PAQUETE_RE.match(paquete):
                 messages.error(request, f"Paquete no válido: {paquete}")
                 continue
-            try:
-                tope_app = max(0, int(partes[2])) if len(partes) > 2 and partes[2] else 0
-            except ValueError:
-                tope_app = 0
+            if paquete in vistos:
+                continue
+            vistos.add(paquete)
+            nombre_app = partes[1] if len(partes) > 1 and partes[1] else paquete
+            tope_app = _entero(partes[2]) if len(partes) > 2 else 0
             apps.append({
                 "paquete": paquete,
-                "nombre": partes[1] if len(partes) > 1 else paquete,
+                "nombre": nombre_app,
                 "datos": True,
                 "tope_mensual_mb": tope_app,
             })
+            # Que quede en el catálogo para la próxima vez
+            AppConocida.objects.update_or_create(
+                paquete=paquete, defaults={"nombre": nombre_app, "origen": "equipo"},
+            )
 
         restricciones = {c: (request.POST.get(f"r_{c}") == "on") for c, _, _ in RESTRICCIONES}
 
@@ -254,22 +275,56 @@ def politica_editar(request, pk=None):
         return redirect("politicas")
 
     # Preparar datos para el formulario
-    apps_texto = ""
     valores_restr = {c: d for c, _, d in RESTRICCIONES}
     if pol:
-        apps_texto = "\n".join(
-            f"{a['paquete']} | {a.get('nombre', a['paquete'])}"
-            + (f" | {a['tope_mensual_mb']}" if a.get('tope_mensual_mb') else "")
-            for a in pol.apps
-        )
         valores_restr = {c: pol.restricciones.get(c, d) for c, _, d in RESTRICCIONES}
+
+    # Apps ya permitidas en esta política, por paquete
+    seleccionadas = {a["paquete"]: a for a in (pol.apps if pol else [])}
+
+    # Catálogo: apps conocidas (base + reportadas por equipos) + las ya permitidas
+    # que todavía no estén en el catálogo.
+    catalogo = list(AppConocida.objects.all())
+    en_catalogo = {a.paquete for a in catalogo}
+    filas = []
+    for app in catalogo:
+        sel = seleccionadas.get(app.paquete)
+        filas.append({
+            "paquete": app.paquete,
+            "nombre": app.nombre,
+            "permitida": sel is not None,
+            "datos": sel.get("datos", True) if sel else True,
+            "tope": sel.get("tope_mensual_mb", 0) if sel else 0,
+            "origen": app.origen,
+        })
+    for pkg, a in seleccionadas.items():
+        if pkg not in en_catalogo:
+            filas.append({
+                "paquete": pkg,
+                "nombre": a.get("nombre", pkg),
+                "permitida": True,
+                "datos": a.get("datos", True),
+                "tope": a.get("tope_mensual_mb", 0),
+                "origen": "manual",
+            })
+    # Permitidas primero, luego alfabético
+    filas.sort(key=lambda f: (not f["permitida"], f["nombre"].lower()))
 
     return render(request, "politica_editar.html", {
         "seccion": "pol",
         "pol": pol,
-        "apps_texto": apps_texto,
+        "filas": filas,
+        "n_permitidas": sum(1 for f in filas if f["permitida"]),
         "restricciones": [(c, t, valores_restr.get(c, d)) for c, t, d in RESTRICCIONES],
     })
+
+
+def _entero(valor):
+    """Entero >= 0 a partir de un texto; 0 si está vacío o no es número."""
+    try:
+        return max(0, int(valor))
+    except (TypeError, ValueError):
+        return 0
 
 
 def _slug(texto):

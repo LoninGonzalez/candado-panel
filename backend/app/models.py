@@ -204,3 +204,21 @@ class VersionApp(models.Model):
     def actual(cls):
         """La versión disponible activa, o None."""
         return cls.objects.filter(activa=True).order_by("-version_code").first()
+
+
+class AppConocida(models.Model):
+    """Catálogo de apps conocidas para elegir al crear políticas. Se alimenta de:
+    - las apps que reportan los equipos en el checkin,
+    - una lista base de apps comunes (sembrada al desplegar)."""
+
+    paquete = models.CharField(max_length=200, unique=True)
+    nombre = models.CharField(max_length=150)
+    # 'equipo' si la reportó un teléfono, 'base' si viene de la lista sembrada
+    origen = models.CharField(max_length=20, default="equipo")
+    visto = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["nombre"]
+
+    def __str__(self):
+        return f"{self.nombre} ({self.paquete})"

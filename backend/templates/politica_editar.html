@@ -17,8 +17,53 @@
 
   <div class="tarjeta">
     <h2>Apps permitidas</h2>
-    <p style="color:var(--pizarra);font-size:.9rem">Una por línea. Formato: <code>paquete | Nombre | tope_MB</code>. El tope es opcional (en MB al mes; al superarlo se cortan los datos de esa app). Todo lo que no esté aquí se oculta.</p>
-    <textarea name="apps" rows="7" placeholder="com.whatsapp | WhatsApp | 500&#10;com.google.android.apps.maps | Maps | 1024&#10;com.android.chrome | Chrome">{{ apps_texto }}</textarea>
+    <p style="color:var(--pizarra);font-size:.9rem">
+      Busca una app y marca <b>Permitida</b>. Para cada permitida puedes decidir si usa <b>datos móviles</b>
+      y ponerle un <b>tope</b> mensual (MB; 0 = sin tope). Todo lo que no marques se oculta en el equipo.
+      El catálogo se llena solo con las apps que reportan los equipos.
+    </p>
+
+    <input type="search" id="buscar" placeholder="Buscar app o paquete…" autocomplete="off"
+      style="margin-bottom:.6rem">
+    <div class="resumen" style="margin-bottom:.4rem">
+      <span id="contador">{{ n_permitidas }}</span> permitida(s) ·
+      <label class="chk" style="display:inline-flex"><input type="checkbox" id="solo_perm"> ver solo permitidas</label>
+    </div>
+
+    <div class="apps-lista" id="lista">
+      {% for f in filas %}
+      <div class="app-fila" data-busca="{{ f.nombre|lower }} {{ f.paquete|lower }}"
+           data-perm="{% if f.permitida %}1{% else %}0{% endif %}">
+        <label class="chk app-perm">
+          <input type="checkbox" name="app_sel" value="{{ f.paquete }}" {% if f.permitida %}checked{% endif %}>
+          <span>
+            <b>{{ f.nombre }}</b>
+            {% if f.origen == 'base' %}<small class="etq">común</small>{% elif f.origen == 'manual' %}<small class="etq">manual</small>{% endif %}
+            <br><small style="color:var(--pizarra)">{{ f.paquete }}</small>
+          </span>
+        </label>
+        <input type="hidden" name="nombre_{{ f.paquete }}" value="{{ f.nombre }}">
+        <div class="app-ops">
+          <label class="chk" title="Permitir datos móviles para esta app">
+            <input type="checkbox" name="datos_{{ f.paquete }}" {% if f.datos %}checked{% endif %}> datos
+          </label>
+          <label title="Tope de datos al mes para esta app (MB; 0 = sin tope)">
+            tope <input type="number" name="tope_{{ f.paquete }}" min="0" value="{{ f.tope }}" style="width:5.5rem">
+          </label>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <p id="sin-res" style="display:none;color:var(--pizarra);font-size:.9rem">Ninguna app coincide con la búsqueda.</p>
+
+    <details style="margin-top:.8rem">
+      <summary style="cursor:pointer;color:var(--pizarra)">¿No aparece una app? Agrégala por paquete</summary>
+      <p style="color:var(--pizarra);font-size:.9rem;margin-top:.5rem">
+        Una por línea. Formato: <code>paquete | Nombre | tope_MB</code> (el nombre y el tope son opcionales).
+        Quedarán en el catálogo para la próxima vez.</p>
+      <textarea name="apps_manual" rows="3"
+        placeholder="com.ejemplo.app | Mi App | 500&#10;com.otra.app"></textarea>
+    </details>
   </div>
 
   <div class="tarjeta">
@@ -35,4 +80,53 @@
     <a href="{% url 'politicas' %}" class="boton sec">Cancelar</a>
   </div>
 </form>
+
+<style>
+  .apps-lista{max-height:360px;overflow-y:auto;border:1px solid var(--borde,#e5e7eb);border-radius:var(--radio,8px)}
+  .app-fila{display:flex;align-items:center;justify-content:space-between;gap:1rem;
+    padding:.55rem .7rem;border-bottom:1px solid var(--borde,#eee)}
+  .app-fila:last-child{border-bottom:0}
+  .app-fila .app-perm{flex:1;align-items:flex-start;margin:0}
+  .app-ops{display:flex;align-items:center;gap:1rem;white-space:nowrap}
+  .app-ops label{display:flex;align-items:center;gap:.3rem;font-size:.9rem;margin:0}
+  .etq{background:var(--nube,#eef);border-radius:6px;padding:.05rem .4rem;font-size:.72rem;color:var(--pizarra)}
+</style>
+
+<script>
+(function () {
+  var buscar = document.getElementById("buscar");
+  var soloPerm = document.getElementById("solo_perm");
+  var lista = document.getElementById("lista");
+  var sinRes = document.getElementById("sin-res");
+  var contador = document.getElementById("contador");
+  var filas = Array.prototype.slice.call(lista.querySelectorAll(".app-fila"));
+
+  function filtrar() {
+    var q = (buscar.value || "").trim().toLowerCase();
+    var soloP = soloPerm.checked;
+    var visibles = 0;
+    filas.forEach(function (f) {
+      var coincide = !q || f.getAttribute("data-busca").indexOf(q) !== -1;
+      var perm = f.querySelector('input[name="app_sel"]').checked;
+      var mostrar = coincide && (!soloP || perm);
+      f.style.display = mostrar ? "" : "none";
+      if (mostrar) visibles++;
+    });
+    sinRes.style.display = visibles ? "none" : "";
+  }
+
+  function recontar() {
+    var n = filas.filter(function (f) {
+      return f.querySelector('input[name="app_sel"]').checked;
+    }).length;
+    contador.textContent = n;
+  }
+
+  buscar.addEventListener("input", filtrar);
+  soloPerm.addEventListener("change", filtrar);
+  lista.addEventListener("change", function (e) {
+    if (e.target && e.target.name === "app_sel") { recontar(); if (soloPerm.checked) filtrar(); }
+  });
+})();
+</script>
 {% endblock %}
