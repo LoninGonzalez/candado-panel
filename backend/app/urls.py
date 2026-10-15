@@ -23,7 +23,6 @@ urlpatterns = [
     path("aplicaciones/<int:pk>/borrar/", views.aplicacion_borrar, name="aplicacion_borrar"),
     path("actualizacion/", views.actualizacion, name="actualizacion"),
     path("actualizacion/<int:pk>/alternar/", views.actualizacion_alternar, name="actualizacion_alternar"),
-    path("tile/<int:z>/<int:x>/<int:y>.png", views.tile, name="tile"),
 
     # API para teléfonos (token)
     path("api/checkin/", api_agente.checkin, name="checkin"),

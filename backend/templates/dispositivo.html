@@ -116,9 +116,14 @@
   <h2>Ubicación</h2>
   <p style="color:var(--pizarra);margin:0 0 .75rem">
     Última ubicación reportada · {{ d.ubicacion_en|timesince }} atrás ·
-    {% localize off %}<a href="https://www.google.com/maps?q={{ d.lat }},{{ d.lon }}" target="_blank">abrir en Google Maps</a>{% endlocalize %}
+    {% localize off %}<a href="https://www.google.com/maps?q={{ d.lat }},{{ d.lon }}" target="_blank">abrir en pantalla completa</a>{% endlocalize %}
   </p>
-  <div id="mapa" style="height:320px;border-radius:var(--radio);overflow:hidden;z-index:0"></div>
+  {% localize off %}
+  <iframe
+    src="https://maps.google.com/maps?q={{ d.lat }},{{ d.lon }}&z=16&output=embed"
+    style="width:100%;height:320px;border:0;border-radius:var(--radio)"
+    loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+  {% endlocalize %}
 </div>
 {% endif %}
 
@@ -163,24 +168,4 @@
   </table>
   {% else %}<p style="color:var(--pizarra)">Aún no se han enviado comandos a este equipo.</p>{% endif %}
 </div>
-
-{% if d.lat and d.lon %}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-<script>
-  (function () {
-    {% localize off %}var lat = {{ d.lat }}, lon = {{ d.lon }};{% endlocalize %}
-    var mapa = L.map('mapa').setView([lat, lon], 15);
-    // Los tiles los sirve el propio panel (proxy a OpenStreetMap), así funcionan en
-    // cualquier navegador sin bloqueos de referrer/403.
-    L.tileLayer('/tile/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap'
-    }).addTo(mapa);
-    L.marker([lat, lon]).addTo(mapa)
-      .bindPopup("{{ d.alias|default:d.modelo|default:'Equipo'|escapejs }}")
-      .openPopup();
-  })();
-</script>
-{% endif %}
 {% endblock %}
