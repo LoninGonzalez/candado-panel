@@ -215,6 +215,8 @@ class AppConocida(models.Model):
     nombre = models.CharField(max_length=150)
     # 'equipo' si la reportó un teléfono, 'base' si viene de la lista sembrada
     origen = models.CharField(max_length=20, default="equipo")
+    # Ícono original de la app (data URI base64), tal como lo manda el teléfono
+    icono = models.TextField(blank=True, default="")
     visto = models.DateTimeField(auto_now=True)
 
     class Meta:

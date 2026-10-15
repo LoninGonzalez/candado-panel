@@ -296,6 +296,7 @@ def politica_editar(request, pk=None):
             "datos": sel.get("datos", True) if sel else True,
             "tope": sel.get("tope_mensual_mb", 0) if sel else 0,
             "origen": app.origen,
+            "icono": app.icono,
         })
     for pkg, a in seleccionadas.items():
         if pkg not in en_catalogo:
@@ -306,6 +307,7 @@ def politica_editar(request, pk=None):
                 "datos": a.get("datos", True),
                 "tope": a.get("tope_mensual_mb", 0),
                 "origen": "manual",
+                "icono": "",
             })
     # Permitidas primero, luego alfabético
     filas.sort(key=lambda f: (not f["permitida"], f["nombre"].lower()))

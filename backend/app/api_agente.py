@@ -69,10 +69,14 @@ def checkin(request):
         for a in instaladas[:200]:
             pkg = (a or {}).get("paquete", "").strip()
             nombre = (a or {}).get("nombre", "").strip() or pkg
-            if pkg:
-                AppConocida.objects.update_or_create(
-                    paquete=pkg, defaults={"nombre": nombre, "origen": "equipo"},
-                )
+            if not pkg:
+                continue
+            defaults = {"nombre": nombre, "origen": "equipo"}
+            # El ícono solo se actualiza si el equipo lo envía (no se borra si no viene)
+            icono = (a or {}).get("icono", "")
+            if isinstance(icono, str) and icono.startswith("data:image"):
+                defaults["icono"] = icono
+            AppConocida.objects.update_or_create(paquete=pkg, defaults=defaults)
 
     # Comandos pendientes
     pendientes = disp.comandos.filter(estado=Comando.Estado.PENDIENTE)
