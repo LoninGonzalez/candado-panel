@@ -28,6 +28,14 @@ RESTRICCIONES = [
 ]
 
 
+def _politica_o_none(valor):
+    """Devuelve la Política con ese id, o None si el valor está vacío o no existe.
+    Evita el error 500 cuando el formulario envía 'Sin política' (valor vacío)."""
+    if not valor:
+        return None
+    return Politica.objects.filter(pk=valor).first()
+
+
 def entrar(request):
     if request.method == "POST":
         u = authenticate(request, username=request.POST.get("usuario"),
@@ -98,7 +106,7 @@ def dispositivo_alias(request, pk):
 @require_POST
 def dispositivo_politica(request, pk):
     d = get_object_or_404(Dispositivo, pk=pk)
-    pol = Politica.objects.filter(pk=request.POST.get("politica")).first()
+    pol = _politica_o_none(request.POST.get("politica"))
     d.politica = pol
     d.version_aplicada = None  # fuerza reenvío de política en el próximo checkin
     d.save(update_fields=["politica", "version_aplicada"])
@@ -134,7 +142,7 @@ def grupo_editar(request, pk=None):
         if not nombre:
             messages.error(request, "El grupo necesita un nombre.")
             return redirect("grupos")
-        pol = Politica.objects.filter(pk=request.POST.get("politica")).first()
+        pol = _politica_o_none(request.POST.get("politica"))
         try:
             orden = max(0, int(request.POST.get("orden") or 0))
         except ValueError:
@@ -172,7 +180,10 @@ def comando(request, pk):
     tipo = request.POST.get("tipo")
     datos = {}
     if tipo == Comando.Tipo.INSTALAR:
-        app = get_object_or_404(Aplicacion, pk=request.POST.get("app"))
+        app = Aplicacion.objects.filter(pk=request.POST.get("app") or 0).first()
+        if not app:
+            messages.error(request, "Elige una aplicación para instalar.")
+            return redirect("dispositivo", pk=pk)
         datos = {
             "urls": app.lista_urls(),   # lista: base + splits
             "paquete": app.paquete,
