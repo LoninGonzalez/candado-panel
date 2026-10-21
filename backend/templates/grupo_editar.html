@@ -30,6 +30,7 @@
       <label class="eq-fila" data-busca="{{ d.alias|lower }} {{ d.marca|lower }} {{ d.modelo|lower }}">
         <input type="checkbox" name="dispositivos" value="{{ d.pk }}" {% if d.pk in en_grupo %}checked{% endif %}>
         <span class="punto {% if d.en_linea %}ok{% else %}gris{% endif %}"></span>
+        <span class="tel-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M11 18.5h2"/></svg></span>
         <span class="eq-nom">{{ d.alias|default:d.modelo|default:"Equipo" }}</span>
         <span class="eq-meta eq-grow">{% if d.marca or d.modelo %}{{ d.marca }} {{ d.modelo }}{% endif %}</span>
         <span class="eq-meta">{% if d.en_linea %}En línea{% else %}Desconectado{% endif %}</span>
@@ -55,6 +56,9 @@
   .eq-fila:last-child{border-bottom:0}
   .eq-fila:hover{background:#faf9ff}
   .eq-fila input{width:auto;flex:none}
+  .tel-ico{flex:none;width:30px;height:30px;border-radius:8px;background:var(--violeta-suave);
+    color:var(--violeta);display:flex;align-items:center;justify-content:center}
+  .tel-ico svg{width:17px;height:17px}
   .eq-nom{font-weight:600}
   .eq-meta{font-size:.82rem;color:var(--pizarra)}
   .eq-grow{flex:1}
