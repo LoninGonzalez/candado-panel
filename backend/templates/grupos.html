@@ -3,28 +3,95 @@
 {% block contenido %}
 <div class="cab">
   <div><h1>Grupos</h1><div class="resumen">Organiza los equipos por sucursal, tipo de trabajo, etc. Un grupo puede asignar una política a todos sus equipos.</div></div>
-  <a href="{% url 'grupo_nuevo' %}" class="boton">Crear grupo</a>
+  <a href="{% url 'grupo_nuevo' %}" class="boton">
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    Crear grupo</a>
 </div>
+
 {% if grupos %}
-<table class="tabla">
-  <thead><tr><th>Nombre</th><th>Política del grupo</th><th>Equipos</th><th>Prioridad</th><th></th></tr></thead>
-  <tbody>
+<div class="grupos-lista">
   {% for g in grupos %}
-    <tr>
-      <td><a href="{% url 'grupo_editar' g.pk %}">{{ g.nombre }}</a>{% if g.descripcion %}<br><small style="color:var(--pizarra)">{{ g.descripcion }}</small>{% endif %}</td>
-      <td>{{ g.politica.nombre|default:"—" }}</td>
-      <td><a href="{% url 'inicio' %}?grupo={{ g.pk }}">{{ g.n }} equipo{{ g.n|pluralize }}</a></td>
-      <td>{{ g.orden }}</td>
-      <td><form method="post" action="{% url 'grupo_borrar' g.pk %}" onsubmit="return confirm('¿Borrar este grupo? Los equipos no se borran, solo salen del grupo.')">{% csrf_token %}<button class="boton peligro mini">Borrar</button></form></td>
-    </tr>
+  <details class="grupo-card"{% if grupo_abierto == g.pk %} open{% endif %}>
+    <summary class="grupo-cab">
+      <svg class="chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+      <span class="grupo-ico">{{ g.nombre|first|upper }}</span>
+      <div class="grupo-info">
+        <div class="grupo-nom">{{ g.nombre }}</div>
+        {% if g.descripcion %}<div class="grupo-desc">{{ g.descripcion }}</div>{% endif %}
+      </div>
+      <div class="grupo-badges">
+        {% if g.politica %}<span class="et gris">{{ g.politica.nombre }}</span>{% else %}<span class="et gris">Sin política</span>{% endif %}
+        <span class="et ok">{{ g.n }} equipo{{ g.n|pluralize }}</span>
+      </div>
+    </summary>
+
+    <div class="grupo-cuerpo">
+      <div class="grupo-acciones">
+        <a href="{% url 'grupo_editar' g.pk %}" class="boton sec mini">Editar grupo</a>
+        <a href="{% url 'inicio' %}?grupo={{ g.pk }}" class="boton sec mini">Ver en Equipos</a>
+        <span class="grupo-prio">Prioridad {{ g.orden }}</span>
+        <form method="post" action="{% url 'grupo_borrar' g.pk %}" style="margin-left:auto"
+          onsubmit="return confirm('¿Borrar este grupo? Los equipos no se borran, solo salen del grupo.')">
+          {% csrf_token %}<button class="boton peligro mini">Borrar</button>
+        </form>
+      </div>
+
+      {% if g.dispositivos.all %}
+      <div class="grupo-equipos">
+        {% for d in g.dispositivos.all %}
+        <a href="{% url 'dispositivo' d.pk %}" class="equipo-fila">
+          <span class="punto {% if d.en_linea %}ok{% else %}gris{% endif %}"></span>
+          <span class="equipo-nom">{{ d.alias|default:d.modelo|default:"Equipo" }}</span>
+          <span class="equipo-meta">{% if d.marca or d.modelo %}{{ d.marca }} {{ d.modelo }}{% endif %}</span>
+          <span class="equipo-meta">{% if d.en_linea %}En línea{% else %}Desconectado{% endif %}</span>
+          <span class="equipo-meta">{% if d.bateria is not None %}{{ d.bateria }}%{% endif %}</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="grupo-vacio">Este grupo todavía no tiene equipos. Usa <a href="{% url 'grupo_editar' g.pk %}">Editar grupo</a> para agregarlos.</p>
+      {% endif %}
+    </div>
+  </details>
   {% endfor %}
-  </tbody>
-</table>
-<p style="color:var(--pizarra);font-size:.9rem;margin-top:1rem">
+</div>
+
+<p style="color:var(--pizarra);font-size:.9rem;margin-top:1.2rem">
   La <strong>prioridad</strong> desempata cuando un equipo está en varios grupos: gana el de número más bajo.
   Y si un equipo tiene política directa propia, esa manda sobre cualquier grupo.
 </p>
 {% else %}
 <div class="vacio"><p style="font-weight:600">Aún no hay grupos.</p><p>Crea uno para agrupar equipos, por ejemplo por sucursal o por tipo de trabajo.</p></div>
 {% endif %}
+
+<style>
+  .grupos-lista{display:flex;flex-direction:column;gap:.85rem}
+  .grupo-card{background:var(--papel);border:1px solid var(--linea);border-radius:var(--radio);
+    box-shadow:var(--sombra);overflow:hidden}
+  .grupo-cab{display:flex;align-items:center;gap:.85rem;padding:1rem 1.2rem;cursor:pointer;
+    list-style:none;user-select:none}
+  .grupo-cab::-webkit-details-marker{display:none}
+  .grupo-cab:hover{background:#faf9ff}
+  .chevron{color:var(--pizarra);flex:none;transition:transform .15s}
+  .grupo-card[open] .chevron{transform:rotate(90deg)}
+  .grupo-ico{flex:none;width:40px;height:40px;border-radius:11px;
+    background:linear-gradient(140deg,#5b52e3,#7c3aed);color:#fff;display:flex;align-items:center;
+    justify-content:center;font-weight:700;font-size:1.1rem}
+  .grupo-info{flex:1;min-width:0}
+  .grupo-nom{font-weight:700;letter-spacing:-.01em}
+  .grupo-desc{font-size:.85rem;color:var(--pizarra)}
+  .grupo-badges{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;flex:none}
+  .grupo-cuerpo{padding:.3rem 1.2rem 1.2rem;border-top:1px solid var(--linea)}
+  .grupo-acciones{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.9rem 0}
+  .grupo-prio{color:var(--pizarra);font-size:.85rem}
+  .grupo-equipos{display:flex;flex-direction:column;gap:.3rem}
+  .equipo-fila{display:flex;align-items:center;gap:.8rem;padding:.6rem .8rem;border-radius:var(--radio-sm);
+    background:#faf9ff;color:var(--tinta)}
+  .equipo-fila:hover{background:var(--violeta-suave);text-decoration:none}
+  .equipo-nom{font-weight:600}
+  .equipo-meta{font-size:.82rem;color:var(--pizarra)}
+  .equipo-meta:nth-child(3){flex:1}
+  .grupo-vacio{color:var(--pizarra);font-size:.9rem;margin:.2rem 0 0}
+  @media(max-width:620px){.grupo-badges{width:100%;padding-left:calc(18px + 40px + 1.7rem)}}
+</style>
 {% endblock %}

@@ -130,7 +130,9 @@ def dispositivo_grupos(request, pk):
 
 @login_required
 def grupos(request):
-    gs = Grupo.objects.select_related("politica").annotate(n=Count("dispositivos"))
+    gs = (Grupo.objects.select_related("politica")
+          .prefetch_related("dispositivos__politica")
+          .annotate(n=Count("dispositivos")))
     return render(request, "grupos.html", {"seccion": "grupo", "grupos": gs})
 
 
@@ -154,12 +156,20 @@ def grupo_editar(request, pk=None):
         g.politica = pol
         g.orden = orden
         g.save()
-        # Al cambiar la política del grupo, forzar re-sincronización de sus equipos
-        g.dispositivos.update(version_aplicada=None)
+        # Equipos que pertenecen al grupo (casillas marcadas)
+        antes = set(g.dispositivos.values_list("pk", flat=True))
+        seleccionados = Dispositivo.objects.filter(pk__in=request.POST.getlist("dispositivos"))
+        g.dispositivos.set(seleccionados)
+        despues = set(seleccionados.values_list("pk", flat=True))
+        # Forzar re-sincronización: miembros actuales (su política pudo cambiar) y los que salieron
+        afectados = despues | (antes - despues)
+        Dispositivo.objects.filter(pk__in=afectados).update(version_aplicada=None)
         messages.success(request, "Grupo guardado.")
         return redirect("grupos")
     return render(request, "grupo_editar.html", {
         "seccion": "grupo", "g": g, "politicas": Politica.objects.all(),
+        "dispositivos": Dispositivo.objects.all(),
+        "en_grupo": set(g.dispositivos.values_list("pk", flat=True)) if g else set(),
     })
 
 

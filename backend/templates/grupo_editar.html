@@ -17,9 +17,62 @@
     <label>Prioridad <small>(menor = más prioritario cuando un equipo está en varios grupos)</small>
       <input type="number" name="orden" min="0" value="{{ g.orden|default:0 }}"></label>
   </div>
+
+  <div class="tarjeta">
+    <h2>Equipos del grupo</h2>
+    <p style="color:var(--pizarra);font-size:.9rem;margin-top:0">
+      Marca los equipos que pertenecen a este grupo. Un equipo puede estar en varios grupos.
+    </p>
+    {% if dispositivos %}
+    <input type="search" id="buscar-eq" placeholder="Buscar equipo…" autocomplete="off" style="margin-bottom:.6rem">
+    <div class="eq-lista" id="eq-lista">
+      {% for d in dispositivos %}
+      <label class="eq-fila" data-busca="{{ d.alias|lower }} {{ d.marca|lower }} {{ d.modelo|lower }}">
+        <input type="checkbox" name="dispositivos" value="{{ d.pk }}" {% if d.pk in en_grupo %}checked{% endif %}>
+        <span class="punto {% if d.en_linea %}ok{% else %}gris{% endif %}"></span>
+        <span class="eq-nom">{{ d.alias|default:d.modelo|default:"Equipo" }}</span>
+        <span class="eq-meta eq-grow">{% if d.marca or d.modelo %}{{ d.marca }} {{ d.modelo }}{% endif %}</span>
+        <span class="eq-meta">{% if d.en_linea %}En línea{% else %}Desconectado{% endif %}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <p id="eq-sin" style="display:none;color:var(--pizarra);font-size:.9rem">Ningún equipo coincide.</p>
+    {% else %}
+    <p style="color:var(--pizarra)">Todavía no hay equipos conectados para agregar.</p>
+    {% endif %}
+  </div>
+
   <div style="display:flex;gap:.5rem">
     <button class="boton">Guardar grupo</button>
     <a href="{% url 'grupos' %}" class="boton sec">Cancelar</a>
   </div>
 </form>
+
+<style>
+  .eq-lista{max-height:340px;overflow-y:auto;border:1px solid var(--linea);border-radius:var(--radio-sm)}
+  .eq-fila{display:flex;align-items:center;gap:.7rem;padding:.6rem .8rem;border-bottom:1px solid var(--linea);
+    font-weight:400;margin:0;cursor:pointer}
+  .eq-fila:last-child{border-bottom:0}
+  .eq-fila:hover{background:#faf9ff}
+  .eq-fila input{width:auto;flex:none}
+  .eq-nom{font-weight:600}
+  .eq-meta{font-size:.82rem;color:var(--pizarra)}
+  .eq-grow{flex:1}
+</style>
+<script>
+(function(){
+  var b=document.getElementById("buscar-eq");
+  if(!b)return;
+  var filas=[].slice.call(document.querySelectorAll("#eq-lista .eq-fila"));
+  var sin=document.getElementById("eq-sin");
+  b.addEventListener("input",function(){
+    var q=b.value.trim().toLowerCase(),vis=0;
+    filas.forEach(function(f){
+      var m=!q||f.getAttribute("data-busca").indexOf(q)!==-1;
+      f.style.display=m?"":"none"; if(m)vis++;
+    });
+    sin.style.display=vis?"none":"";
+  });
+})();
+</script>
 {% endblock %}
