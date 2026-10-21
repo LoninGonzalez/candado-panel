@@ -30,6 +30,9 @@
     <span class="meta">{% if d.en_linea %}En línea{% else %}Desconectado{% endif %}</span>
     <span class="meta">{{ d.politica_efectiva.nombre|default:"Sin política" }}</span>
     <span class="meta">{% if d.bateria is not None %}Batería {{ d.bateria }}%{% endif %}</span>
+    {% if d.consumo_total_mb is not None or d.consumo_wifi_mb is not None %}
+    <span class="meta">Datos {{ d.consumo_total_mb|default:0 }} MB · WiFi {{ d.consumo_wifi_mb|default:0 }} MB</span>
+    {% endif %}
     <span class="meta">{% if d.visto %}Visto {{ d.visto|timesince }}{% else %}Nunca{% endif %}</span>
   </a>
   {% endfor %}

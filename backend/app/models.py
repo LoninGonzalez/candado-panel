@@ -81,8 +81,9 @@ class Dispositivo(models.Model):
     version_aplicada = models.PositiveIntegerField(null=True, blank=True)
     visto = models.DateTimeField(null=True, blank=True)
     inscrito = models.DateTimeField(auto_now_add=True)
-    # Consumo de datos móviles del mes (reportado por el equipo)
-    consumo_total_mb = models.PositiveIntegerField(null=True, blank=True)
+    # Consumo del mes (reportado por el equipo)
+    consumo_total_mb = models.PositiveIntegerField(null=True, blank=True)  # datos móviles
+    consumo_wifi_mb = models.PositiveIntegerField(null=True, blank=True)   # WiFi
     consumo_por_app = models.JSONField(default=dict, blank=True)  # {"com.app": mb}
     tope_superado = models.BooleanField(default=False)
     # Última ubicación reportada
